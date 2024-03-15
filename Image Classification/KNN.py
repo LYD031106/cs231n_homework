@@ -13,21 +13,23 @@ class imageclassification_by_NearestNeighborClassifier:
     def __init__(self,X_train,Y_train):
         self.X_train = X_train
         self.Y_train = Y_train
-    def predict_l1(self,X_test):
+
+
+    def predict_l1(self,X_test,k = 1):
         X_test_pred = np.zeros(self.X_train.shape[0])
         for i in range(X_test.shape[0]):
-            # 取出待计算的训练集中的数据Xi
+            # 取出待计算的训练集中的数据Xi,计算距离Xi最近的几个训练集数据
             distance = np.abs(np.sum(X_train - X_test[i],axis = 1))
             mindistance_index = np.argmin(distance)
-            X_test_pred[i] = mindistance_index
+            X_test_pred[i] = self.Y_train[mindistance_index]
         return X_test_pred
-    def predict_l2(self,X_test):
+    def predict_l2(self,X_test,k = 1):
         X_test_pred = np.zeros(self.X_train.shape[0])
         for i in range(X_test.shape[0]):
             # 取出待计算的训练集中的数据Xi
             distance = np.sqrt(np.sum(np.square(X_train - X_test[i]),axis = 1))
             mindistance_index = np.argmin(distance)
-            X_test_pred[i] = mindistance_index
+            X_test_pred[i] = self.Y_train[mindistance_index]
         return X_test_pred
 
     def predict_l1_k(self,X_test,k):
@@ -40,9 +42,9 @@ class imageclassification_by_NearestNeighborClassifier:
         for i in range(X_test.shape[0]):
             # 取出待计算的训练集中的数据Xi
             distance = np.abs(np.sum(X_train - X_test[i],axis = 1))
-            mindistance_index = np.partition(distance, k)[:k]
-            unique_values, counts = np.unique(mindistance_index, return_counts=True)
-            X_test_pred[i] = unique_values[np.argmax(counts)]
+            mindistance_index = np.argsort(distance)[:k]
+            lable_k = self.Y_train[mindistance_index]
+            X_test_pred[i] = np.bincount(lable_k).argmax()
         return X_test_pred
 
     def predict_l2_k(self,X_test,k):
@@ -50,9 +52,9 @@ class imageclassification_by_NearestNeighborClassifier:
         for i in range(X_test.shape[0]):
             # 取出待计算的训练集中的数据Xi
             distance = np.sqrt(np.sum(np.square(X_train - X_test[i]),axis = 1))
-            mindistance_index = np.argmin(distance)
-            unique_values, counts = np.unique(mindistance_index, return_counts=True)
-            X_test_pred[i] = unique_values[np.argmax(counts)]
+            mindistance_index = np.argsort(distance)[:k]
+            lable_k = self.Y_train[mindistance_index]
+            X_test_pred[i] = np.bincount(lable_k).argmax()
         return X_test_pred
 
 X_train,Y_train,X_test,Y_test = load_CIFAR10("../data/cifar-10-python")
@@ -61,4 +63,4 @@ X_test = X_test.reshape(X_test.shape[0],X_test.shape[1]*X_test.shape[2]*X_test.s
 
 model = imageclassification_by_NearestNeighborClassifier(X_train,Y_train)
 result = model.predict_l1_k(X_test,k = 4)
-print(result)
+print(result==Y_test)
