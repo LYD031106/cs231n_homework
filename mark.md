@@ -10,6 +10,8 @@ L1距离 $d_1(I_1,I_2) = \sum_{p}(I_1^P -  I_2^P)^2 $
 L1距离 $d_1(I_1,I_2) = \sqrt{\sum_{p}(I_1^P -  I_2^P)^2} $
 
 ## Loss function 
+### 多类支持向量机损失
+![alt text](iamge/SVMloss.png)
  
 ## L1 L2 正则化
 正则化是机器学习和统计建模中用于防止过度拟合并提高模型泛化能力的技术。
