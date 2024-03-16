@@ -54,7 +54,8 @@ class imageclassification_by_NearestNeighborClassifier:
             distance = np.sqrt(np.sum(np.square(X_train - X_test[i]),axis = 1))
             mindistance_index = np.argsort(distance)[:k]
             lable_k = self.Y_train[mindistance_index]
-            X_test_pred[i] = np.bincount(lable_k).argmax()
+            X_test_pred[i] =
+            np.bincount(lable_k).argmax()
         return X_test_pred
 
 X_train,Y_train,X_test,Y_test = load_CIFAR10("../data/cifar-10-python")
