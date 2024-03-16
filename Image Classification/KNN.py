@@ -54,7 +54,7 @@ class imageclassification_by_NearestNeighborClassifier:
             distance = np.sqrt(np.sum(np.square(X_train - X_test[i]),axis = 1))
             mindistance_index = np.argsort(distance)[:k]
             lable_k = self.Y_train[mindistance_index]
-            X_test_pred[i] =
+            X_test_pred[i] = np.bincount(lable_k).argmax()
             np.bincount(lable_k).argmax()
         return X_test_pred
 

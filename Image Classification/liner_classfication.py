@@ -42,6 +42,7 @@ class Liner_classification:
         output = np.dot(input , self.W)
         output = output + self.b
         return output
+
     def SVMLoss(self,output,label):
             mid = output - output[label] + 1
             mid[label] = 0
