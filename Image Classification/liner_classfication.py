@@ -45,10 +45,10 @@ class Liner_classification:
         """
         score = self.X_train.dot(self.W)
         #计算loss
-        correct_score = score[np.arange(score.shape[0]),self.Y_train][:, np.newaxis]
+        correct_score = score[np.arange(score.shape[0]),self.Y_train].reshape(1, -1)
         score = score - correct_score + 1
-        score[range(score.shape[0]), self.Y_train] = 0
         midloss = np.maximum(0,score)
+        score[range(score.shape[0]), self.Y_train] = 0
         loss = np.sum(score,axis=1)
         total_loss = np.sum(loss)/self.X_train.shape[0] + reg * np.sum(self.W * self.W)
         return score
