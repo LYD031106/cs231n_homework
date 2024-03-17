@@ -14,49 +14,82 @@ class Liner_classification:
         self.X_train = X_train
         self.Y_train = Y_train
 
-    def train_svm_classification(self,reg):
+    def train(self,batch_size , epoch,lr,reg):
         """
-        :param reg: 学习率
+        本部分使用SGD,每一个epoch随机挑选一个batch_size来进行梯度下降，因此仅仅需要梯度下降一次
+        :param batch_size: 设定一次batch_size
+        :param epoch: 设定训练多少论
+        :param lr : 学习率
+        :param reg : 正则化参数
+        :return: 返回一个最佳的self.W
+        """
+
+        for i in range(1,epoch+1):
+            traind_index = np.random.choice(self.X_train.shape[0],size = batch_size,replace = False)
+            X_train_batch = self.X_train[traind_index]
+            Y_train_batch = self.Y_train[traind_index]
+            loss, gradient = self.train_svm_classification_byvector(X_train_batch,Y_train_batch,reg = reg)
+            self.W -= lr * gradient
+            predict_label = self.predict(X_train_batch)
+            accuracy = np.mean(predict_label == Y_train_batch)
+            if i % 1000 == 0:
+                print(f"{i} epoch--loss :{loss}--accuracy:{accuracy}")
+
+
+    def train_svm_classification(self,reg,X,Y):
+        """
+        :param X : 输入数据（N*D）N表示了X中包含的图片数量，D表示输入照片维度
+        :param Y : 表示X对应的标签
+        :param reg: 正则化
         :return:
         """
         total_loss = 0
         dw = np.zeros(self.W.shape)
-        for i in range(self.X_train.shape[0]):
-            output = self.forward(self.X_train[i])
-            correct_score = output[self.Y_train[i]]
-            for j in range(self.X_train.shape[1]):
-                if j == self.Y_train[i]:
+        for i in range(X.shape[0]):
+            output = self.forward(X[i])
+            correct_score = output[Y[i]]
+            for j in range(X.shape[1]):
+                if j == Y[i]:
                     continue
                 else:
                     loss = output[j] - correct_score + 1
                     if loss > 0:
-                       dw[:,Y_train[j]] += -self.X_train[i]
-                       dw[:,j] += self.X_train[i]
+                       dw[:,Y[j]] += -X[i]
+                       dw[:,j] += X[i]
                        total_loss += loss
-        total_loss /= self.X_train.shape[0]
-        dw /= self.X_train.shape[0]
+        total_loss /= X.shape[0]
+        dw /= X.shape[0]
+        dw += 2 * reg * np.sum(self.W)
         total_loss += reg*np.sum(self.W * self.W)
         #对于total_loss进行均值
         return total_loss,dw
-    def train_svm_classification_byvector(self,reg):
+    def train_svm_classification_byvector(self,X,Y,reg):
         """
-        :param reg: 学习率
+        :param reg: 正则化
         :return:
         """
-        score = self.X_train.dot(self.W)
+        score = X.dot(self.W)
+        dw = np.zeros(self.W.shape) #我们最后的dW需要利用损失函数对于得分的偏导 乘 得分对于对于w的偏导，通过链式法则求解
         #计算loss
-        correct_score = score[np.arange(score.shape[0]),self.Y_train].reshape(1, -1)
+        correct_score = score[np.arange(score.shape[0]),Y].reshape(1, -1).T
         score = score - correct_score + 1
-        midloss = np.maximum(0,score)
-        score[range(score.shape[0]), self.Y_train] = 0
+        score = np.maximum(0,score)
+        score[range(score.shape[0]), Y] = 0
         loss = np.sum(score,axis=1)
-        total_loss = np.sum(loss)/self.X_train.shape[0] + reg * np.sum(self.W * self.W)
-        return score
+        total_loss = np.sum(loss)/X.shape[0] + reg * np.sum(self.W * self.W)
+        dS = np.zeros(score.shape)
+        dS[score>0] = 1
+        dS[np.arange(dS.shape[0]),Y] -= np.sum(dS,axis = 1)
+        dw += X.T.dot(dS)
+        dw /= X.shape[0]
+        dw += 2 * reg * self.W
+        return total_loss ,dw
 
+    def predict(self,input):
+        output = self.forward(input)
+        label = np.argmax(output,axis = 1)
+        return label
 
-
-    def gradienct(self,loss):
-        pass
     def forward(self,input):
         output = np.dot(input , self.W)
         output = output
@@ -78,5 +111,5 @@ mean_image = np.mean(X_train,axis = 1)
 
 
 model = Liner_classification(output_size = 10,X_train = X_train , Y_train = Y_train)
-model.train_svm_classification_byvector(reg = 1e-9)
+model.train(32,100000,1e-9,2.5e4)
 
