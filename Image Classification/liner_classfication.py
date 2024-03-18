@@ -10,7 +10,7 @@ import numpy as np
 
 class Liner_classification:
     def __init__(self,output_size,X_train,Y_train):
-        self.W = np.random.randn(X_train.shape[1],output_size)
+        self.W = np.random.randn(X_train.shape[1],output_size) * 0.001
         self.X_train = X_train
         self.Y_train = Y_train
 
@@ -85,23 +85,55 @@ class Liner_classification:
         dw += 2 * reg * self.W
         return total_loss ,dw
 
+    def train_softmax_classifcation(self,X,Y,reg):
+        """
+        :param X : 输入数据（N*D）N表示了X中包含的图片数量，D表示输入照片维度
+        :param Y : 表示X对应的标签
+        :param reg: 正则化
+        :return:
+        """
+        total_loss = 0
+        dw = np.zeros(self.W.shape)
+        total_loss = 0
+        for i in range(X.shape[0]):
+            output = self.forward(X[i])
+            output -= output[np.argmax(output, axis=0)]
+            exp_x = np.exp(output)
+            softmax_output = exp_x / np.sum(exp_x)
+            total_loss += -np.log(softmax_output[Y[i]])
+            for j in range(X.shape[1]):
+                target = softmax_output[j]
+                if j == Y[i]:
+                    dw[:,j] += (target - 1) * X[i]
+                else:
+                    dw[:,j] += target * X[i]
+        return total_loss, dw
+
     def predict(self,input):
         output = self.forward(input)
         label = np.argmax(output,axis = 1)
         return label
 
+    def SVMLoss(self,output,label):
+        mid = output - output[label] + 1
+        mid[label] = 0
+        loss = np.sum(np.maximum(mid,0))
+        return loss
+    def softmaxLoss(self,input,label,reg):
+        output = input.dot(self.W)
+        output -= np.argmax(output,axis = 1).reshape(1,-1).T
+        exp_x = np.exp(output)
+        softmax_output = exp_x/np.sum(exp_x,axis = 1).reshape(1,-1).T
+        softmax_output = softmax_output * softmax_output[label]
+        loss = np.sum(-np.log(softmax_output[np.arange(input.shape[0]),label]))/output.shape[0] + np.sum(self.W**2)*reg
+        softmax_output[np.arange(input.shape[0]), label] -= 1
+        return loss
+
+
     def forward(self,input):
         output = np.dot(input , self.W)
-        output = output
         return output
 
-    def SVMLoss(self,output,label):
-            mid = output - output[label] + 1
-            mid[label] = 0
-            loss = np.sum(np.maximum(mid,0))
-            return loss
-    def SVMbatchloss(self,output,Y_test):
-        loss = output - Y_test
 
 X_train,Y_train,X_test,Y_test = load_CIFAR10("../data/cifar-10-python")
 X_train = X_train.reshape(X_train.shape[0],X_train.shape[1]*X_train.shape[2]*X_train.shape[3])
@@ -111,5 +143,5 @@ mean_image = np.mean(X_train,axis = 1)
 
 
 model = Liner_classification(output_size = 10,X_train = X_train , Y_train = Y_train)
-model.train(32,100000,1e-9,2.5e4)
+model.softmaxLoss(X_train,Y_train,2e-2)
 
