@@ -113,6 +113,9 @@ class two_layer_net():
                 if step % 100 == 0:
                     print(f"num_epoch:{i}:steo:{step}:loss :{total_loss}")
                     total_loss = 0
+                # if i >= 10:
+                #     lr = 1e-8
+
             if i % 10 == 0:
                 score = self.loss(val_x)
                 val_loss,_= softmax_loss(score , val_y)
@@ -134,5 +137,5 @@ train_y = Y_train[:split_index]
 val_x = X_train[split_index : ]
 val_y = Y_train[split_index : ]
 model = two_layer_net()
-model.train(train_x,train_y,val_x,val_y,lr = 1e-5, reg= 0.2 , epoch = 1000)
+model.train(train_x,train_y,val_x,val_y,lr = 1e-4, reg= 0.2 , epoch = 1000)
 
