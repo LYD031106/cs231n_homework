@@ -245,38 +245,63 @@ def conv_forward_fast(x, w, b, conv_param):
 
     return out, cache
 
+
 def conv_backward_fast(dout, cache):
     """
-    Backward pass for the convolution operation using img2col and col2img.
+    # Arguments
+        out_grad: gradient to the forward output of conv layer, with shape (batch, out_channel, out_height, out_width)
+        input: numpy array with shape (batch, in_channel, in_height, in_width)
+        weights: numpy array with shape (out_channel, in_channel, kernel_h, kernel_w)
+        bias: numpy array with shape (out_channel)
 
-    :param dout: Gradient of the loss with respect to the output of the convolution operation
-    :param cache: Cached values from the forward pass
-
-    :return: Gradients with respect to the input, weights, and bias
+    # Returns
+        in_grad: gradient to the forward input of conv layer, with same shape as input
+        w_grad: gradient to weights, with same shape as weights
+        b_bias: gradient to bias, with same shape as bias
     """
-    dx,dw,db = None,None,None
     x, w, b, conv_param = cache
-    stride = conv_param["stride"]
-    padding = conv_param["pad"]
-    batch, channel, height, width = x.shape
-    num_filters, _, filter_height, filter_width = w.shape
+    pad = conv_param['pad']
+    stride = conv_param['stride']
+    batch, in_channel, in_height, in_width = x.shape
+    batch, out_channel, out_height, out_width = dout.shape
+    num_filters, _, kernel_h, kernel_w = w.shape
+    """
+       compute b_grad
+    """
+    b_grad = np.sum(dout, axis=(0, 2, 3))
+    b_grad = b_grad.reshape(out_channel)
 
-    # Apply padding to the input
-    input_padded = np.pad(x, ((0, 0), (0, 0), (padding, padding), (padding, padding)), mode='constant')
+    # pad zero to input
+    input_padded = np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), mode='constant')
+    # Img2Col
+    col_input = img2col(input_padded, out_height, out_width, kernel_h, kernel_w, stride)
+    # merge channel
+    col_input = col_input.reshape(col_input.shape[0], -1, col_input.shape[3])
 
-    # Determine output dimensions
-    h_out = (height + 2 * padding - filter_height) // stride + 1
-    w_out = (width + 2 * padding - filter_width) // stride + 1
+    # transpose and reshape col_input to 2D matrix
+    X_hat = col_input.transpose(1, 2, 0).reshape(in_channel * kernel_h * kernel_w, -1)
+    # transpose and reshape out_grad
+    dout_reshape = dout.transpose(1, 2, 3, 0).reshape(out_channel, -1)
 
-    # Use img2col to transform input
-    col = img2col(input_padded, h_out, w_out, filter_height, filter_width, stride)
+    """
+        compute w_grad
+    """
+    w_grad = dout_reshape @ X_hat.T
+    w_grad = w_grad.reshape(w.shape)
 
+    """
+        compute in_grad
+    """
     # reshape kernel
-    weights_flatten = w.reshape(w.shape[0], -1)
-    dout = dout.reshape()
+    W = w.reshape(out_channel, -1)
+    in_grad_column = W.T @ dout_reshape
 
-    return dx, dw, db
+    # Split batch dimension and transpose batch to first dimension
+    in_grad_column = in_grad_column.reshape(in_grad_column.shape[0], -1, batch).transpose(2, 0, 1)
 
+    in_grad = col2img(in_grad_column, in_height + pad*2, in_width + pad*2, kernel_h, kernel_w, in_channel, pad, stride)
+
+    return in_grad, w_grad, b_grad
 
 
 def max_pool_forward_naive(x, pool_param):

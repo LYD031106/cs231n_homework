@@ -24,34 +24,33 @@ def img2col(input, h_out, w_out, h_k, w_k, stride):
 
 def col2img(input_col, pad_h, pad_w, kernel_h, kernel_w, channel, pad, stride):
     """
-    Unstack columns to image
-    :param input_col: (batch, channel*kernel_h*kernel_w, out_h*out_w)
-    :param pad_h: Height of the padded image
-    :param pad_w: Width of the padded image
-    :param kernel_h: Height of the kernel
-    :param kernel_w: Width of the kernel
-    :param channel: Number of channels
-    :param pad: Padding applied to the original image
-    :param stride: Stride used in the convolution
-    :return: (batch, channel, pad_h - 2*pad, pad_w - 2*pad)
+        Unstack columns to image
+    :input_col: (batch, channel*kernel_h*kernel_w, out_h*out_w)
+    :return: (batch, channel, pad_h - pad, pad_w - pad)
     """
-    batch, _, out_h_times_out_w = input_col.shape
-    out_h = (pad_h - kernel_h) // stride + 1
-    out_w = (pad_w - kernel_w) // stride + 1
+    batch = input_col.shape[0]
     pad_out = np.zeros((batch, channel, pad_h, pad_w))
-
+    # unchannel input, get shape (batch, channel, kernel_h*kernel_w, out_h*out_w)
+    unchannel_input = input_col.reshape(input_col.shape[0], channel, -1, input_col.shape[2])
+    col_idx = 0
     for i in range(batch):
         for j in range(channel):
-            for k in range(out_h_times_out_w):
-                row = k // out_w
-                col = k % out_w
-                h_start = row * stride
-                w_start = col * stride
-                pad_out[i, j, h_start:h_start + kernel_h, w_start:w_start + kernel_w] += input_col[i, j * kernel_h * kernel_w:(j + 1) * kernel_h * kernel_w, k].reshape(kernel_h, kernel_w)
-    if pad > 0:
-        return pad_out[:, :, pad:-pad, pad:-pad]
+            widx = 0
+            hidx = 0
+            # for each column in one channel
+            for col_idx in range(unchannel_input.shape[-1]):
+                pad_out[i, j, hidx:hidx + kernel_h, widx:widx + kernel_w] += unchannel_input[i, j, :, col_idx].reshape(
+                    kernel_h, -1)
+                widx += stride
+                if widx + kernel_w > pad_w:
+                    widx = 0
+                    hidx += stride
+    if pad<1:
+        result = pad_out
     else:
-        return pad_out
+        result = pad_out[:, :, int(pad / 2):-(pad - int(pad / 2)), int(pad / 2):-(pad - int(pad / 2))]
+    return result
+
 
 
 

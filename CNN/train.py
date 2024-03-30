@@ -24,7 +24,7 @@ class Train():
                  ,test_x
                  ,test_y
                  ,val_b = 4
-                 ,lr = 1e-5):
+                 ,lr = 1e-2):
         self.train_x = train_x
         self.train_y = train_y
         self.val_x = val_x
@@ -58,10 +58,11 @@ class Train():
     def save_checkpoint(self,i):
         if os.path.exists(r"checkpoint") and os.path.isdir(r"checkpoint"):
             os.makedirs(r"checkpoint")
+        os.makedirs(fr"checkpoint/epoch{i}")
         with open(f"checkpoint/epoch{i}", 'wb') as f:
-            pickle.dump(self.best_params, f)
+            pickle.dump(f"checkpoint/epoch{i}", f)
 
-    def update_w(self, grad, mode={"learning_rate": 1e-6, "mode": "sgd"}):
+    def update_w(self, grad, mode={"learning_rate": 1e-4, "mode": "sgd"}):
         if mode["mode"] == "sgd":
             for parameter_name in self.model.params.keys():
                 gradient = grad[parameter_name]
@@ -69,8 +70,7 @@ class Train():
                 self.model.params[parameter_name] = sgd(self.model.params[parameter_name],gradient , mode)[0]
 
     def train(self
-              ,lr = 1e-6
-              ,epoch = 30
+              ,epoch = 100
               ,val_epoch = 5
               ,batch_size = 32):
         # 使用随机梯度下降更新梯度
@@ -85,10 +85,11 @@ class Train():
             # 更新
             self.update_w(grad, {"learning_rate": self.lr, "mode": "sgd"})
             # 计算acc
-            train_acc = self.get_acc(self.train_x,self.train_y)
-            self.train_acc.append(train_acc)
+            # train_acc = self.get_acc(self.train_x,self.train_y)
+            # self.train_acc.append(train_acc)
             if i % self.val_b == 0:
                 val_acc = self.get_acc(self.val_x,self.val_y)
+                print(f"{i}/{epoch}:val_acc : {val_acc}")
                 self.val_acc.append(val_acc)
                 if val_acc > self.best_val_acc:
                     self.best_params = self.model.params.copy()
