@@ -44,7 +44,7 @@ def conv_relu_fast_backward(dout , cache):
     dx , dw , db = conv_backward_fast(dx , cache_conv)
     return dx,dw,db
 
-def conv_bn_relu_forward(x, w, b, gamma, beta, conv_param, bn_param):
+def conv_pool_bn_relu_forward(x, w, b, gamma, beta, conv_param, bn_param,pool_param):
     """Convenience layer that performs a convolution, a batch normalization, and a ReLU.
 
     Inputs:
@@ -59,20 +59,22 @@ def conv_bn_relu_forward(x, w, b, gamma, beta, conv_param, bn_param):
     - out: Output from the pooling layer
     - cache: Object to give to the backward pass
     """
-    a, conv_cache = conv_forward_naive(x, w, b, conv_param)
-    an, bn_cache = spatial_batchnorm_forward(a, gamma, beta, bn_param)
+    a, conv_cache = conv_forward_fast(x, w, b, conv_param)
+    max_pool_out, max_pool_cache = max_pool_forward_fast(a, pool_param)
+    an, bn_cache = spatial_batchnorm_forward(max_pool_out, gamma, beta, bn_param)
     out, relu_cache = relu_forward(an)
-    cache = (conv_cache, bn_cache, relu_cache)
+    cache = (conv_cache, max_pool_cache,bn_cache, relu_cache)
     return out, cache
 
 
-def conv_bn_relu_backward(dout, cache):
+def conv_pool_bn_relu_backward(dout, cache):
     """Backward pass for the conv-bn-relu convenience layer.
     """
-    conv_cache, bn_cache, relu_cache = cache
+    conv_cache, max_pool_cache,bn_cache, relu_cache = cache
     dan = relu_backward(dout, relu_cache)
     da, dgamma, dbeta = spatial_batchnorm_backward(dan, bn_cache)
-    dx, dw, db = conv_backward_fast(da, conv_cache)
+    dx = max_pool_backward_fast(dout, max_pool_cache)
+    dx, dw, db = conv_backward_fast(dx, conv_cache)
     return dx, dw, db, dgamma, dbeta
 
 def conv_relu_pool_forward(x, w, b, conv_param, pool_param):
@@ -84,7 +86,7 @@ def conv_relu_pool_forward(x, w, b, conv_param, pool_param):
 
 def conv_relu_pool_backward(dout , cache):
     conv_cache, relu_cache, max_pool_cache = cache
-    dx = max_pool_backward_naive(dout,max_pool_cache)
+    dx = max_pool_backward_fast(dout,max_pool_cache)
     dx = relu_backward(dx , relu_cache)
     dx , dw,db = conv_backward_naive(dx,conv_cache)
     return dx,dw,db

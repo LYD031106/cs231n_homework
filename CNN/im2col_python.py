@@ -22,6 +22,7 @@ def img2col(input, h_out, w_out, h_k, w_k, stride):
                 convwIdx += stride
     return out
 
+
 def col2img(input_col, pad_h, pad_w, kernel_h, kernel_w, channel, pad, stride):
     """
         Unstack columns to image

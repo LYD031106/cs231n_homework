@@ -31,8 +31,10 @@ def fully_backward(dout,cache):
     """
     x,w,b = cache
     dx,dw,db = None,None,None
-    dx = dout.dot(w.T).reshape(x.shape)
-    dw = x.reshape((x.shape[0],-1)).T.dot(dout)
+    dx = dout.dot(w.T)
+    shape = x.shape
+    dx = dx.reshape(shape)
+    dw = x.reshape(x.shape[0],-1).T.dot(dout)
     db = np.sum(dout,axis = 0)
     return dx , dw , db
 
@@ -75,19 +77,18 @@ def softmax_loss(x,y):
     :param y: x对应的label
     :return:返回loss 和 loss对于x的求导
     """
-    # 首先计算概率
-    x -= np.max(x,axis = 1).reshape(1,-1).T
-    x = np.exp(x)
-    x = x/np.sum(x,axis = 1).reshape(1,-1).T
-    loss = np.sum(-np.log(x[np.arange(x.shape[0]),y]))
-    loss /= x.shape[0]
+    loss, dx = None, None
+    output = x
+    output -= np.max(output, axis=1).reshape(1, -1).T
+    exp_x = np.exp(output)
+    softmax_output = exp_x / np.sum(exp_x, axis=1).reshape(1, -1).T
+    loss = np.sum(-np.log(softmax_output[np.arange(x.shape[0]), y])) / output.shape[0]
 
-    # 计算梯度
-    x[np.arange(x.shape[0]),y] -= 1
-    dx = x
+    softmax_output[np.arange(x.shape[0]), y] -= 1
+    dx = softmax_output
     dx /= x.shape[0]
-    return loss,dx
 
+    return loss, dx
 
 def conv_forward_naive(x, w, b, conv_param):
     """A naive implementation of the forward pass for a convolutional layer.
@@ -150,10 +151,7 @@ def conv_forward_naive(x, w, b, conv_param):
     x = x_pad
     cache = (x, w, b, conv_param)
     end = time.time()
-    print(f"cost_time:{start - end}")
-    print(f"batch_szie:{x.shape[0]}")
     return out, cache
-
 
 def conv_backward_naive(dout, cache):
     """A naive implementation of the backward pass for a convolutional layer.
@@ -224,11 +222,11 @@ def conv_forward_fast(x, w, b, conv_param):
     h_out = (height + 2 * padding - filter_height) // stride + 1
     w_out = (width + 2 * padding - filter_width) // stride + 1
 
-    # Use img2col to transform input
-    col = img2col(input_padded, h_out, w_out, filter_height, filter_width, stride)
 
+    # Img2Col
+    col_input = img2col(input_padded, h_out, w_out, filter_height, filter_width, stride)
     # merge channel
-    col_input = col.reshape(col.shape[0], -1, col.shape[3])
+    col_input = col_input.reshape(col_input.shape[0], -1, col_input.shape[3])
 
     # reshape kernel
     weights_flatten = w.reshape(w.shape[0], -1)
@@ -236,15 +234,11 @@ def conv_forward_fast(x, w, b, conv_param):
     # compute convolution
     output = weights_flatten @ col_input + b.reshape(-1, 1)
 
-    # Reshape output to expected output dimensions
-    out = output.reshape(batch, h_out, w_out, num_filters)
-    out = out.transpose(0, 3, 1, 2)  # Adjust output dimensions
-
-    # Cache values necessary for backward pass
+    # reshape convolution result
+    output = output.reshape(output.shape[0], output.shape[1], h_out, w_out)
     cache = (x, w, b, conv_param)
-
-    return out, cache
-
+    #####################################################################################
+    return output,cache
 
 def conv_backward_fast(dout, cache):
     """
@@ -259,12 +253,15 @@ def conv_backward_fast(dout, cache):
         w_grad: gradient to weights, with same shape as weights
         b_bias: gradient to bias, with same shape as bias
     """
+
     x, w, b, conv_param = cache
-    pad = conv_param['pad']
+    padding = conv_param['pad']
     stride = conv_param['stride']
     batch, in_channel, in_height, in_width = x.shape
     batch, out_channel, out_height, out_width = dout.shape
     num_filters, _, kernel_h, kernel_w = w.shape
+    #################################################################################
+    batch, out_channel, out_height, out_width = dout.shape
     """
        compute b_grad
     """
@@ -272,7 +269,7 @@ def conv_backward_fast(dout, cache):
     b_grad = b_grad.reshape(out_channel)
 
     # pad zero to input
-    input_padded = np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), mode='constant')
+    input_padded = np.pad(x, ((0, 0), (0, 0), (padding, padding), (padding, padding)), mode='constant')
     # Img2Col
     col_input = img2col(input_padded, out_height, out_width, kernel_h, kernel_w, stride)
     # merge channel
@@ -281,12 +278,12 @@ def conv_backward_fast(dout, cache):
     # transpose and reshape col_input to 2D matrix
     X_hat = col_input.transpose(1, 2, 0).reshape(in_channel * kernel_h * kernel_w, -1)
     # transpose and reshape out_grad
-    dout_reshape = dout.transpose(1, 2, 3, 0).reshape(out_channel, -1)
+    out_grad_reshape = dout.transpose(1, 2, 3, 0).reshape(out_channel, -1)
 
     """
         compute w_grad
     """
-    w_grad = dout_reshape @ X_hat.T
+    w_grad = out_grad_reshape @ X_hat.T
     w_grad = w_grad.reshape(w.shape)
 
     """
@@ -294,13 +291,13 @@ def conv_backward_fast(dout, cache):
     """
     # reshape kernel
     W = w.reshape(out_channel, -1)
-    in_grad_column = W.T @ dout_reshape
+    in_grad_column = W.T @ out_grad_reshape
 
     # Split batch dimension and transpose batch to first dimension
     in_grad_column = in_grad_column.reshape(in_grad_column.shape[0], -1, batch).transpose(2, 0, 1)
 
-    in_grad = col2img(in_grad_column, in_height + pad*2, in_width + pad*2, kernel_h, kernel_w, in_channel, pad, stride)
-
+    in_grad = col2img(in_grad_column, in_height + padding*2, in_width + padding*2, kernel_h, kernel_w, in_channel, padding, stride)
+    #################################################################################
     return in_grad, w_grad, b_grad
 
 
@@ -520,7 +517,6 @@ def batchnorm_forward(x, gamma, beta, bn_param):
 
     out, cache = None, None
     if mode == "train":
-
         x_mean = np.mean(x , axis = 0)
         x_var = np.var(x, axis=0)
         x_std = np.sqrt(x_var + eps)
@@ -564,5 +560,91 @@ def batchnorm_backward_alt(dout, cache):
     dx_var = np.sum(dx_norm * (x - x_mean) * (-0.5) * np.power(x_var + eps, -1.5), axis=0)  # 计算dx_var
     dx_mean = np.sum(dx_norm * (-1) / x_std, axis=0) + dx_var * np.sum(-2 * (x - x_mean), axis=0) / x.shape[0]  # 计算dx_mean
     dx = dx_norm / x_std + dx_var * 2 * (x - x_mean) / x.shape[0] + dx_mean / x.shape[0]  # 计算dx
+
+    return dx, dgamma, dbeta
+
+
+def spatial_batchnorm_forward(x, gamma, beta, bn_param):
+    """Computes the forward pass for spatial batch normalization.
+
+    Inputs:
+    - x: Input data of shape (N, C, H, W)
+    - gamma: Scale parameter, of shape (C,)
+    - beta: Shift parameter, of shape (C,)
+    - bn_param: Dictionary with the following keys:
+      - mode: 'train' or 'test'; required
+      - eps: Constant for numeric stability
+      - momentum: Constant for running mean / variance. momentum=0 means that
+        old information is discarded completely at every time step, while
+        momentum=1 means that new information is never incorporated. The
+        default of momentum=0.9 should work well in most situations.
+      - running_mean: Array of shape (D,) giving running mean of features
+      - running_var Array of shape (D,) giving running variance of features
+
+    Returns a tuple of:
+    - out: Output data, of shape (N, C, H, W)
+    - cache: Values needed for the backward pass
+    """
+    out, cache = None, None
+
+    ###########################################################################
+    # TODO: Implement the forward pass for spatial batch normalization.       #
+    #                                                                         #
+    # HINT: You can implement spatial batch normalization by calling the      #
+    # vanilla version of batch normalization you implemented above.           #
+    # Your implementation should be very short; ours is less than five lines. #
+    ###########################################################################
+    # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+
+    N, C, H, W = x.shape
+    x_flat = x.transpose(0, 2, 3, 1).reshape(-1, C)  # 将 x 变形为 (N*H*W, C)
+    # 调用 batchnorm_forward 函数进行批量归一化
+    out_flat, cache = batchnorm_forward(x_flat, gamma, beta, bn_param)
+
+    # 将输出数据重新变形为 (N, H, W, C)
+    out = out_flat.reshape(N, H, W, C).transpose(0, 3, 1, 2)
+
+
+    return out, cache
+
+
+def spatial_batchnorm_backward(dout, cache):
+    """Computes the backward pass for spatial batch normalization.
+
+    Inputs:
+    - dout: Upstream derivatives, of shape (N, C, H, W)
+    - cache: Values from the forward pass
+
+    Returns a tuple of:
+    - dx: Gradient with respect to inputs, of shape (N, C, H, W)
+    - dgamma: Gradient with respect to scale parameter, of shape (C,)
+    - dbeta: Gradient with respect to shift parameter, of shape (C,)
+    """
+    dx, dgamma, dbeta = None, None, None
+
+    ###########################################################################
+    # TODO: Implement the backward pass for spatial batch normalization.      #
+    #                                                                         #
+    # HINT: You can implement spatial batch normalization by calling the      #
+    # vanilla version of batch normalization you implemented above.           #
+    # Your implementation should be very short; ours is less than five lines. #
+    ###########################################################################
+    # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+
+    N, C, H, W = dout.shape
+    dout_flat = dout.transpose(0, 2, 3, 1).reshape(-1, C)  # 将 dout 变形为 (N*H*W, C)
+
+    # 调用 batchnorm_backward_alt 函数进行反向传播
+    dx_flat, dgamma, dbeta = batchnorm_backward_alt(dout_flat, cache)
+
+    # 将 dx 重新变形为 (N, H, W, C)
+    dx = dx_flat.reshape(N, H, W, C).transpose(0, 3, 1, 2)
+
+    return dx, dgamma, dbeta
+
+    # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    ###########################################################################
+    #                             END OF YOUR CODE                            #
+    ###########################################################################
 
     return dx, dgamma, dbeta
