@@ -73,7 +73,7 @@ class Train():
                  ,test_x
                  ,test_y
                  ,val_b = 4
-                 ,lr = 1e-2
+                 ,lr = 2e-3
                  ):
         self.train_x = train_x
         self.train_y = train_y
