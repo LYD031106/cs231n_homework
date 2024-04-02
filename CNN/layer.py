@@ -39,6 +39,7 @@ def fully_backward(dout,cache):
     return dx , dw , db
 
 def relu_forward(x):
+
     output = np.maximum(0,x)
     return output,x
 
@@ -586,16 +587,6 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     - cache: Values needed for the backward pass
     """
     out, cache = None, None
-
-    ###########################################################################
-    # TODO: Implement the forward pass for spatial batch normalization.       #
-    #                                                                         #
-    # HINT: You can implement spatial batch normalization by calling the      #
-    # vanilla version of batch normalization you implemented above.           #
-    # Your implementation should be very short; ours is less than five lines. #
-    ###########################################################################
-    # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
     N, C, H, W = x.shape
     x_flat = x.transpose(0, 2, 3, 1).reshape(-1, C)  # 将 x 变形为 (N*H*W, C)
     # 调用 batchnorm_forward 函数进行批量归一化

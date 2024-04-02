@@ -116,10 +116,11 @@ class two_layer_net():
                 # if i >= 10:
                 #     lr = 1e-8
 
-            if i % 10 == 0:
+            if i % 2 == 0:
                 score = self.loss(val_x)
                 val_loss,_= softmax_loss(score , val_y)
                 val_acc = self.get_acc(score,val_y)
+                print(val_acc)
                 # 记录损失和准确率到 TensorBoard
                 writer.add_scalar('Loss/val', val_loss, i)
                 writer.add_scalar('Accuracy/val', val_acc, i)

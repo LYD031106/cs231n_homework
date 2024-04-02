@@ -78,9 +78,9 @@ def conv_pool_bn_relu_backward(dout, cache):
     return dx, dw, db, dgamma, dbeta
 
 def conv_relu_pool_forward(x, w, b, conv_param, pool_param):
-    conv_out , conv_cache = conv_forward_naive(x,w,b,conv_param)
+    conv_out , conv_cache = conv_forward_fast(x,w,b,conv_param)
     relu_out , relu_cache = relu_forward(conv_out)
-    max_pool_out , max_pool_cache = max_pool_forward_naive(relu_out,pool_param)
+    max_pool_out , max_pool_cache = max_pool_forward_fast(relu_out,pool_param)
     cache = (conv_cache,relu_cache,max_pool_cache)
     return max_pool_out,cache
 
@@ -88,7 +88,7 @@ def conv_relu_pool_backward(dout , cache):
     conv_cache, relu_cache, max_pool_cache = cache
     dx = max_pool_backward_fast(dout,max_pool_cache)
     dx = relu_backward(dx , relu_cache)
-    dx , dw,db = conv_backward_naive(dx,conv_cache)
+    dx , dw,db = conv_backward_fast(dx,conv_cache)
     return dx,dw,db
 
 
